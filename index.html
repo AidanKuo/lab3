@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+    <meta charset="utf-8">
+    <title>Earthquake List</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+            flex-direction: row;
+            align-items: stretch;
+        }
+
+        #side-panel {
+            flex-basis: 500px;
+            overflow-y: scroll;
+            margin-left: 0; 
+            margin-right: 0; 
+            order: 2;  
+        }
+
+        #map {
+            flex-grow: 1;
+        } 
+
+        button {
+            margin-bottom: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 16px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        @media screen and (max-width: 1024px) {
+            #side-panel {
+                display: none;
+            }
+        }
+    </style>
+ </head>
+ <body>
+    <main id="container">
+        <div id="side-panel">
+ 
+            <h2>Airport List</h2>
+            <button>Sort by National Scale</button>
+ 
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>National Scale</th>
+                    <th>Type</th>
+                </tr>
+            </table>
+ 
+            </div>
+        <div id="map"></div>
+    </main>
+    <script>
+        mapboxgl.accessToken =
+            'pk.eyJ1IjoiYWlkYW5rdW8iLCJhIjoiY202c2w0eHdlMDl2OTJub2V5Z3A5bHEwOCJ9.am485M8_8b3MbrndrPW1SA';
+
+        let map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: 'mapbox://styles/mapbox/dark-v11', // style URL
+            zoom: 4, // starting zoom
+            center: [-97, 38] // starting center
+        });
+
+        async function geojsonFetch() {
+            let response, earthquakes, parks, airports, japan, table;
+            response = await fetch('assets/earthquakes.geojson');
+            earthquakes = await response.json();
+            response = await fetch('assets/airports.geojson');
+            airports = await response.json();
+            response = await fetch('assets/parks.geojson');
+            parks = await response.json();
+            response = await fetch('assets/japan.json');
+            japan = await response.json();
+
+            table = document.getElementsByTagName("table")[0];
+            let row, cell1, cell2, cell3;
+            for (let i = 0; i < airports.features.length; i++) {
+                // Create an empty <tr> element and add it to the 1st position of the table:
+                row = table.insertRow(-1);
+                cell1 = row.insertCell(0);
+                cell2 = row.insertCell(1);
+                cell3 = row.insertCell(2);
+                cell1.innerHTML = airports.features[i].properties.name;
+                cell2.innerHTML = airports.features[i].properties.natlscale;
+                cell3.innerHTML = airports.features[i].properties.type;
+            }
+
+            map.on('load', function loadingData() {
+
+            map.addSource('earthquakes', {
+                type: 'geojson',
+                data: earthquakes
+            });
+
+            map.addLayer({
+                'id': 'earthquakes-layer',
+                'type': 'circle',
+                'source': 'earthquakes',
+                'paint': {
+                    'circle-radius': 8,
+                    'circle-stroke-width': 2,
+                    'circle-color': 'red',
+                    'circle-stroke-color': 'white'
+                }
+            });
+
+            map.addSource('airports', {
+                type: 'geojson',
+                data: airports
+            });
+
+            map.addLayer({
+                'id': 'airports-layer',
+                'type': 'symbol',
+                'source': 'airports',
+                'layout': {
+                    'icon-image': 'airport', // Built-in airport icon
+                    'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 16, 1.8],
+                    'icon-allow-overlap': true, // Ensures icons don’t disappear when close together
+                    'text-field': ['get', 'name'], // Displays the airport name
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-offset': [0, 1.2], // Positions text below the icon
+                    'text-size': 12
+                },
+                'paint': {
+                    'icon-opacity': 0.9, // Slight transparency for a clean look
+                    'text-color': '#003366', // Dark blue text for readability
+                    'text-halo-color': 'white',
+                    'text-halo-width': 2
+                }
+            });
+
+            map.addSource('parks', {
+                type: 'geojson',
+                data: parks
+            });
+
+            map.addLayer({
+                'id': 'parks-layer',
+                'type': 'circle',
+                'source': 'parks',
+                'paint': {
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8], // Adjusts size based on zoom
+                'circle-stroke-width': .75, // Enhances stroke visibility
+                'circle-color': '#2E8B57', // Softer green for a natural look
+                'circle-stroke-color': '#FFFFFF', // White stroke for contrast
+                'circle-opacity': 0.8 // Slight transparency for a cleaner feel
+            }
+            });
+
+
+            map.addSource('japan', {
+                type: 'geojson',
+                data: japan
+            });
+
+            map.addLayer({
+                'id': 'japan-layer',
+                'type': 'fill',
+                'source': 'japan',
+                'paint': {
+                    'fill-color': '#0080ff', // blue color fill
+                    'fill-opacity': 0.5
+                }
+            });
+
+            });
+        };
+
+        geojsonFetch();
+
+        let btn = document.getElementsByTagName("button")[0];
+
+        btn.addEventListener('click', sortTable);
+
+        // define the function to sort table
+        function sortTable(e) {
+
+        }
+
+        // define the function to sort table
+        function sortTable(e) {
+            let table, rows, switching, i, x, y, shouldSwitch;
+            table = document.getElementsByTagName("table")[0];
+            switching = true;
+            /*Make a loop that will continue until
+            no switching has been done:*/
+            while (switching) {
+                //start by saying: no switching is done:
+                switching = false;
+                rows = table.rows;
+                /*Loop through all table rows (except the
+                first, which contains table headers):*/
+                for (i = 1; i < (rows.length - 1); i++) {
+                    //start by saying there should be no switching:
+                    shouldSwitch = false;
+                    /*Get the two elements you want to compare,
+                    one from current row and one from the next:*/
+                    x = parseFloat(rows[i].getElementsByTagName("td")[1].innerHTML);
+                    y = parseFloat(rows[i + 1].getElementsByTagName("td")[1].innerHTML);
+                    //check if the two rows should switch place:
+                    if (x < y) {
+                        //if so, mark as a switch and break the loop:
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+                if (shouldSwitch) {
+                    /*If a switch has been marked, make the switch
+                    and mark that a switch has been done:*/
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                }
+            }
+        }
+    </script>
+ </body>   
+<html>   
